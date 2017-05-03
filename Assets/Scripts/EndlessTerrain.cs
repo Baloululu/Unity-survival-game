@@ -235,7 +235,7 @@ public class EndlessTerrain : MonoBehaviour
                     else
                         choice = Random.Range(0, trees.Length - 1);
                     GameObject tree = Instantiate(trees[choice], posTree, Quaternion.AngleAxis(AngleAlea(), Vector3.up), treesParent.transform);
-                    tree.transform.localScale = new Vector3(Random.Range(9f, 11f) / 10f, Random.Range(7f, 13f) / 10f, Random.Range(9f, 11f) / 10f);
+                    tree.transform.localScale = new Vector3(Random.Range(0.9f, 1.1f), Random.Range(0.7f, 1.3f), Random.Range(0.9f, 1.1f));
                 }
             }
         }
@@ -254,7 +254,21 @@ public class EndlessTerrain : MonoBehaviour
                 int choice;
                 choice = Random.Range(0, rocks.Length - 1);
                 GameObject rock = Instantiate(rocks[choice], posRock, Quaternion.Euler(AngleAlea(), AngleAlea(), AngleAlea()), rocksParent.transform);
-                rock.transform.localScale = new Vector3(Random.Range(7f, 13f) / 10f, Random.Range(7f, 13f) / 10f, Random.Range(7f, 13f) / 10f);
+                rock.transform.localScale = new Vector3(Random.Range(0.7f, 1.3f), Random.Range(0.7f, 1.3f), Random.Range(0.7f, 1.3f));
+            }
+            for (int i = 0; i < number/20; i++)
+            {
+                float xalea = Random.Range(-center, center);
+                float zalea = Random.Range(-center, center);
+                float hauteur = mapData.heightMap[center + (int)xalea, center - (int)zalea];
+                Vector3 posRock = meshObject.transform.position;
+                posRock.x += xalea;
+                posRock.z += zalea;
+                posRock.y = mapGenerator.meshHeightCurve.Evaluate(mapData.heightMap[center + (int)xalea, center - (int)zalea]) * mapGenerator.meshHeightMultiplier - 0.5f;
+                int choice;
+                choice = Random.Range(0, rocks.Length - 1);
+                GameObject rock = Instantiate(rocks[choice], posRock, Quaternion.Euler(AngleAlea(), AngleAlea(), AngleAlea()), rocksParent.transform);
+                rock.transform.localScale = new Vector3(Random.Range(5f, 11f), Random.Range(5f, 11f), Random.Range(5f, 11f));
             }
         }
 
