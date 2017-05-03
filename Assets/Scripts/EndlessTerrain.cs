@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class EndlessTerrain : MonoBehaviour {
+public class EndlessTerrain : MonoBehaviour
+{
 
     const float scale = 1f;
 
@@ -10,7 +11,7 @@ public class EndlessTerrain : MonoBehaviour {
     const float sqrviewerMoveThresholdForChunkUpdate = viewerMoveThresholdForChunkUpdate * viewerMoveThresholdForChunkUpdate;
 
     public LODInfo[] detailLevel;
-    public static float maxViewDist = 450;
+    public static float maxViewDist = 600;
     public Transform viewer;
     public Material mapMaterial;
 
@@ -38,7 +39,7 @@ public class EndlessTerrain : MonoBehaviour {
     {
         viewerPosition = new Vector2(viewer.position.x, viewer.position.z) / scale;
 
-        if ((viewerPostionOld-viewerPosition).sqrMagnitude > sqrviewerMoveThresholdForChunkUpdate)
+        if ((viewerPostionOld - viewerPosition).sqrMagnitude > sqrviewerMoveThresholdForChunkUpdate)
         {
             UpdateVisibleChunks();
             viewerPostionOld = viewerPosition;
@@ -47,7 +48,7 @@ public class EndlessTerrain : MonoBehaviour {
 
     void UpdateVisibleChunks()
     {
-        for(int i = 0; i < terrainVisibleLastUpdate.Count; i++)
+        for (int i = 0; i < terrainVisibleLastUpdate.Count; i++)
         {
             terrainVisibleLastUpdate[i].SetVisible(false);
         }
@@ -62,13 +63,13 @@ public class EndlessTerrain : MonoBehaviour {
             {
                 Vector2 viewerChunkCoord = new Vector2(currentChunkCoordX + xOffset, currentChunkCoordY + yOffset);
 
-                if (terrainChunkDictionary.ContainsKey (viewerChunkCoord))
+                if (terrainChunkDictionary.ContainsKey(viewerChunkCoord))
                 {
                     terrainChunkDictionary[viewerChunkCoord].UpdateCoordChunk();
                 }
                 else
                 {
-                    terrainChunkDictionary.Add(viewerChunkCoord, new TerrainChunk(viewerChunkCoord, chunkSize, detailLevel, transform, mapMaterial, mapGenerator.trees));
+                    terrainChunkDictionary.Add(viewerChunkCoord, new TerrainChunk(viewerChunkCoord, chunkSize, detailLevel, transform, mapMaterial, mapGenerator.trees, mapGenerator.rocks));
                 }
             }
         }
@@ -77,7 +78,7 @@ public class EndlessTerrain : MonoBehaviour {
     public class TerrainChunk
     {
         Vector2 position;
-        GameObject meshObject;
+        GameObject meshObject, treesParent, rocksParent;
         Bounds bounds;
 
         MeshFilter meshFilter;
@@ -89,13 +90,14 @@ public class EndlessTerrain : MonoBehaviour {
         LODMesh collisionLODMesh;
 
         GameObject[] trees;
+        GameObject[] rocks;
 
         MapData mapData;
         bool mapDataReceived;
         int previousLODIndex = -1;
         bool hasObject = false;
 
-        public TerrainChunk(Vector2 coord, int size, LODInfo[] detailLevels, Transform parent, Material material, GameObject[] trees)
+        public TerrainChunk(Vector2 coord, int size, LODInfo[] detailLevels, Transform parent, Material material, GameObject[] trees, GameObject[] rocks)
         {
             position = coord * size;
             bounds = new Bounds(position, Vector2.one * size);
@@ -103,8 +105,15 @@ public class EndlessTerrain : MonoBehaviour {
             this.detailLevels = detailLevels;
 
             this.trees = trees;
+            this.rocks = rocks;
 
             meshObject = new GameObject("Terrain Chunk");
+            treesParent = new GameObject("Trees");
+            rocksParent = new GameObject("Rocks");
+
+            treesParent.transform.parent = meshObject.transform;
+            rocksParent.transform.parent = meshObject.transform;
+
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshFilter = meshObject.AddComponent<MeshFilter>();
             meshCollider = meshObject.AddComponent<MeshCollider>();
@@ -127,7 +136,7 @@ public class EndlessTerrain : MonoBehaviour {
             mapGenerator.RequestMapData(position, OnMapDataReceived);
         }
 
-        void OnMapDataReceived (MapData mapData)
+        void OnMapDataReceived(MapData mapData)
         {
             this.mapData = mapData;
             mapDataReceived = true;
@@ -175,29 +184,16 @@ public class EndlessTerrain : MonoBehaviour {
                         if (!hasObject)
                         {
                             int centre = mapData.heightMap.GetLength(0) / 2;
-                            for (int i = 0; i < 100; i++)
-                            {
-                                float xalea = Random.Range(-centre, centre);
-                                float zalea = Random.Range(-centre, centre);
-                                if (mapData.heightMap[centre + (int)xalea, centre - (int)zalea] > 0.3f)
-                                {
-                                    Vector3 posTree = meshObject.transform.position;
-                                    posTree.x += xalea;
-                                    posTree.z += zalea;
-                                    posTree.y = mapGenerator.meshHeightCurve.Evaluate(mapData.heightMap[centre + (int)xalea, centre - (int)zalea]) * mapGenerator.meshHeightMultiplier - 0.5f;
-                                    int choice = Random.Range(0, trees.Length);
-                                    GameObject tree = Instantiate(trees[choice], posTree, Quaternion.AngleAxis(Random.Range(-180, 180), Vector3.up), meshObject.transform);
-                                    tree.transform.localScale = new Vector3(Random.Range(9f, 11f) / 10f, Random.Range(7f, 13f) / 10f, Random.Range(9f, 11f) / 10f);
-                                }
-                            }
+                            GenerateTrees(centre, 100);
+                            GenerateRocks(centre, 50);
                             hasObject = true;
                         }
-                        
+
                         if (collisionLODMesh.hasMesh)
                         {
                             meshCollider.sharedMesh = collisionLODMesh.mesh;
                         }
-                        else if(!collisionLODMesh.hasMesh)
+                        else if (!collisionLODMesh.hasMesh)
                         {
                             collisionLODMesh.RequestMesh(mapData);
                         }
@@ -219,6 +215,53 @@ public class EndlessTerrain : MonoBehaviour {
         {
             return meshObject.activeSelf;
         }
+
+        void GenerateTrees(int center, int number)
+        {
+            for (int i = 0; i < number; i++)
+            {
+                float xalea = Random.Range(-center, center);
+                float zalea = Random.Range(-center, center);
+                float hauteur = mapData.heightMap[center + (int)xalea, center - (int)zalea];
+                if (hauteur > mapGenerator.regions[1].height)
+                {
+                    Vector3 posTree = meshObject.transform.position;
+                    posTree.x += xalea;
+                    posTree.z += zalea;
+                    posTree.y = mapGenerator.meshHeightCurve.Evaluate(mapData.heightMap[center + (int)xalea, center - (int)zalea]) * mapGenerator.meshHeightMultiplier - 0.5f;
+                    int choice;
+                    if (hauteur > mapGenerator.regions[mapGenerator.regions.Length - 1].height)
+                        choice = 3;
+                    else
+                        choice = Random.Range(0, trees.Length - 1);
+                    GameObject tree = Instantiate(trees[choice], posTree, Quaternion.AngleAxis(AngleAlea(), Vector3.up), treesParent.transform);
+                    tree.transform.localScale = new Vector3(Random.Range(9f, 11f) / 10f, Random.Range(7f, 13f) / 10f, Random.Range(9f, 11f) / 10f);
+                }
+            }
+        }
+
+        void GenerateRocks(int center, int number)
+        {
+            for (int i = 0; i < number; i++)
+            {
+                float xalea = Random.Range(-center, center);
+                float zalea = Random.Range(-center, center);
+                float hauteur = mapData.heightMap[center + (int)xalea, center - (int)zalea];
+                Vector3 posRock = meshObject.transform.position;
+                posRock.x += xalea;
+                posRock.z += zalea;
+                posRock.y = mapGenerator.meshHeightCurve.Evaluate(mapData.heightMap[center + (int)xalea, center - (int)zalea]) * mapGenerator.meshHeightMultiplier - 0.5f;
+                int choice;
+                choice = Random.Range(0, rocks.Length - 1);
+                GameObject rock = Instantiate(rocks[choice], posRock, Quaternion.Euler(AngleAlea(), AngleAlea(), AngleAlea()), rocksParent.transform);
+                rock.transform.localScale = new Vector3(Random.Range(7f, 13f) / 10f, Random.Range(7f, 13f) / 10f, Random.Range(7f, 13f) / 10f);
+            }
+        }
+
+        float AngleAlea()
+        {
+            return Random.Range(-180f, 180f);
+        }
     }
 
     class LODMesh
@@ -235,7 +278,7 @@ public class EndlessTerrain : MonoBehaviour {
             this.updateCallback = updateCallback;
         }
 
-        void OnMeshDataReceived (MeshData meshData)
+        void OnMeshDataReceived(MeshData meshData)
         {
             mesh = meshData.CreateMesh();
             hasMesh = true;

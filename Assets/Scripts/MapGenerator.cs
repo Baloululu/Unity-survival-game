@@ -35,6 +35,7 @@ public class MapGenerator : MonoBehaviour {
     public TerrainType[] regions;
 
     public GameObject[] trees;
+    public GameObject[] rocks;
 
     Queue<MapThreadInfo<MapData>> mapDataThreadInfoQueue = new Queue<MapThreadInfo<MapData>>();
     Queue<MapThreadInfo<MeshData>> meshDataThreadInfoQueue = new Queue<MapThreadInfo<MeshData>>();
