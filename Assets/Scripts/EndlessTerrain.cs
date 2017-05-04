@@ -96,7 +96,7 @@ public class EndlessTerrain : MonoBehaviour
         MapData mapData;
         bool mapDataReceived;
         int previousLODIndex = -1;
-        bool hasObject = false;
+        bool hasObject = false, hasGrass = false;
 
         public TerrainChunk(Vector2 coord, int size, LODInfo[] detailLevels, Transform parent, Material material, GameObject[] trees, GameObject[] rocks, GameObject[] grass)
         {
@@ -112,11 +112,9 @@ public class EndlessTerrain : MonoBehaviour
             meshObject = new GameObject("Terrain Chunk");
             treesParent = new GameObject("Trees");
             rocksParent = new GameObject("Rocks");
-            grassParent = new GameObject("Grass");
 
             treesParent.transform.parent = meshObject.transform;
             rocksParent.transform.parent = meshObject.transform;
-            grassParent.transform.parent = meshObject.transform;
 
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshFilter = meshObject.AddComponent<MeshFilter>();
@@ -185,13 +183,19 @@ public class EndlessTerrain : MonoBehaviour
 
                     if (lodIndex == 0)
                     {
+                        int centre = mapData.heightMap.GetLength(0) / 2;
                         if (!hasObject)
                         {
-                            int centre = mapData.heightMap.GetLength(0) / 2;
                             GenerateTrees(centre, 100);
                             GenerateRocks(centre, 50);
-                            GenerateGrass(centre, 1000);
                             hasObject = true;
+                        }
+                        if (!hasGrass)
+                        {
+                            grassParent = new GameObject("Grass");
+                            grassParent.transform.parent = meshObject.transform;
+                            GenerateGrass(centre, 5000);
+                            hasGrass = true;
                         }
 
                         if (collisionLODMesh.hasMesh)
@@ -202,6 +206,11 @@ public class EndlessTerrain : MonoBehaviour
                         {
                             collisionLODMesh.RequestMesh(mapData);
                         }
+                    }
+                    else if (hasGrass)
+                    {
+                        Destroy(grassParent);
+                        hasGrass = false;
                     }
 
                     terrainVisibleLastUpdate.Add(this);
