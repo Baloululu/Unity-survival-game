@@ -57,7 +57,7 @@ public class EndlessTerrain : MonoBehaviour
     void initHerbe()
     {
         Vector2 position = new Vector2();
-        int herbeDep = (int)Mathf.Sqrt(herbeProche);
+        int herbeDep = (int)maxViewDist - 100;
         for (int i = 0; i < grassNear.Count; ++i)
         {
             position = viewerPosition + Random.insideUnitCircle * herbeDep;
@@ -65,6 +65,8 @@ public class EndlessTerrain : MonoBehaviour
             Vector3 posGrass = new Vector3(position.x, GrassHeigh(position), position.y);
 
             grassNear[i].transform.position = posGrass;
+
+            ActiveGrass(posGrass, grassNear[i]);
         }
     }
 
@@ -79,7 +81,7 @@ public class EndlessTerrain : MonoBehaviour
                 initHerbe();
                 firstTime = false;
             }
-                
+
             UpdateVisibleChunks();
             viewerPostionOld = viewerPosition;
         }
@@ -144,23 +146,56 @@ public class EndlessTerrain : MonoBehaviour
 
             Vector3 posGrass = new Vector3(position.x, GrassHeigh(position), position.y);
 
+            ActiveGrass(posGrass, grassFar[i]);
+
             grassFar[i].transform.position = posGrass;
         }
     }
 
     float GrassHeigh(Vector2 pos)
     {
+        Vector2 vec = CoordChunk(pos);
+        TerrainChunk terrain = TerrainSelect(pos);
+
+        return terrain.Evaluer((int)vec.x, (int)vec.y);
+    }
+
+    Vector2 CoordChunk(Vector2 pos)
+    {
+        int chunkCoordX = Mathf.RoundToInt(pos.x / chunkSize);
+        int chunkCoordY = Mathf.RoundToInt(pos.y / chunkSize);
+
+        int x = (int)pos.x - (chunkCoordX * chunkSize);
+        int y = (int)pos.y - (chunkCoordY * chunkSize);
+
+        return new Vector2(x, y);
+    }
+
+    TerrainChunk TerrainSelect(Vector2 pos)
+    {
         int chunkCoordX = Mathf.RoundToInt(pos.x / chunkSize);
         int chunkCoordY = Mathf.RoundToInt(pos.y / chunkSize);
 
         Vector2 key = new Vector2(chunkCoordX, chunkCoordY);
 
-        TerrainChunk terrain = terrainChunkDictionary[key];
+        return terrainChunkDictionary[key];
+    }
 
-        int xHeigh = (int)pos.x - (chunkCoordX * chunkSize);
-        int yHeigh = (int)pos.y - (chunkCoordY * chunkSize);
+    void ActiveGrass(Vector3 pos, GameObject grass)
+    {
+        Vector2 vec = CoordChunk(pos);
+        TerrainChunk terrain = TerrainSelect(pos);
 
-        return terrain.Evaluer(xHeigh, yHeigh);
+        if (terrain.HeighMap((int)vec.x, (int)vec.y) < 0.5f) //mapGenerator.regions[2].height
+        {
+            grass.SetActive(false);
+            //print("Efface");
+        }
+        else
+        {
+            grass.SetActive(true);
+        }
+
     }
 
     public class TerrainChunk
@@ -278,13 +313,6 @@ public class EndlessTerrain : MonoBehaviour
                             GenerateRocks(50);
                             hasObject = true;
                         }
-                        /*if (!hasGrass)
-                        {
-                            grassParent = new GameObject("Grass");
-                            grassParent.transform.parent = meshObject.transform;
-                            GenerateGrass(centre, 5000);
-                            hasGrass = true;
-                        }*/
 
                         if (collisionLODMesh.hasMesh)
                         {
@@ -295,11 +323,6 @@ public class EndlessTerrain : MonoBehaviour
                             collisionLODMesh.RequestMesh(mapData);
                         }
                     }
-                    /*else if (hasGrass)
-                    {
-                        Destroy(grassParent);
-                        hasGrass = false;
-                    }*/
 
                     terrainVisibleLastUpdate.Add(this);
                 }
@@ -324,7 +347,7 @@ public class EndlessTerrain : MonoBehaviour
             {
                 float xalea = Random.Range(-center, center);
                 float zalea = Random.Range(-center, center);
-                float hauteur = mapData.heightMap[center + (int)xalea, center - (int)zalea];
+                float hauteur = HeighMap((int)xalea, (int)zalea);
                 if (hauteur > mapGenerator.regions[1].height)
                 {
                     Vector3 posTree = meshObject.transform.position;
@@ -372,30 +395,14 @@ public class EndlessTerrain : MonoBehaviour
             }
         }
 
-        /*void GenerateGrass(int number)
-        {
-            for (int i = 0; i < number; i++)
-            {
-                float xalea = Random.Range(-center, center);
-                float zalea = Random.Range(-center, center);
-                float hauteur = mapData.heightMap[center + (int)xalea, center - (int)zalea];
-                if (hauteur > mapGenerator.regions[2].height && hauteur < mapGenerator.regions[mapGenerator.regions.Length - 3].height)
-                {
-                    Vector3 posGrass = meshObject.transform.position;
-                    posGrass.x += xalea;
-                    posGrass.z += zalea;
-                    posGrass.y = EvaluerCentre((int) xalea, (int) zalea) - 0.1f;
-                    int choice;
-                    choice = Random.Range(0, grass.Length - 1);
-                    GameObject herbe = Instantiate(grass[choice], posGrass, Quaternion.AngleAxis(AngleAlea(), Vector3.up), grassParent.transform);
-                    herbe.transform.localScale = new Vector3(Random.Range(0.9f, 1.1f), Random.Range(0.7f, 1.3f), Random.Range(0.9f, 1.1f));
-                }
-            }
-        }*/
-
         public float Evaluer(int x, int z)
         {
-            return mapGenerator.meshHeightCurve.Evaluate(mapData.heightMap[center + x, center - z]) * mapGenerator.meshHeightMultiplier;
+            return mapGenerator.meshHeightCurve.Evaluate(HeighMap(x, z)) * mapGenerator.meshHeightMultiplier;
+        }
+
+        public float HeighMap(int x, int y)
+        {
+            return mapData.heightMap[center + x, center - y];
         }
     }
 
